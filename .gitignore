@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# macOS junk
+.DS_Store
+
+# Any env-style files, not just ".env"
+*.env
+.env.*
