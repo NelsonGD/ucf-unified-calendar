@@ -3,6 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from canvasapi import Canvas
+import requests
 
 app = FastAPI()
 
@@ -155,3 +156,15 @@ async def get_course_assignments(course_id: int):
         except Exception as e:
             print(f"Error loading assignments for {course}: {e}")
     return out
+
+@app.get("/courses/raw")
+async def raw_courses():
+    r = requests.get()(
+        "https://webcourses.ucf.edu/api/v1/courses"
+        header={"Authorization": f"Bearer {API_KEY}"}
+    )
+    return {
+        "status": r.status_code,
+        "headers": dict(r.headers),
+        "body": r.json()
+    }
