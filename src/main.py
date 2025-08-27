@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from canvasapi import Canvas
 import requests
-
+from canvasapi.exceptions import Forbidden
 
 app = FastAPI()
 
@@ -151,27 +151,37 @@ async def get_course_assignments(course_id: int):
             if a.due_at:
                 out.append({
                     "assignment": a.name,
-                    "due_date": a.due_at,
+                    "due_at": a.due_at,
                     "html_url": a.html_url
                 })
+        except Forbidden as e:
+            print(f"[course_assignments] Forbidden for course_id={getattr(course, 'id', 'unknown')}: {e}")
+            continue
         except Exception as e:
-            print(f"Error loading assignments for {course}: {e}")
+            cid = getattr(course, 'id', 'unknown')
+            cname = getattr(course, 'name', None) or getattr(course, 'course_code', None) or 'unknown'
+            print(f"[course_assignments] error course_id={cid} name={cname}: {e}")
+            continue
     return out
 
 @app.get("/courses/raw")
 async def raw_courses():
     r = requests.get(
         f"{BASE}/api/v1/courses",
-        headers={"Authorization:" : f"Bearer {API_KEY}"}
+        headers={"Authorization": f"Bearer {API_KEY}"}
         )
+    r.raise_for_status()
 
     link_header = r.headers.get("Link", "")
     next_url = None
-    
+
     for part in link_header.split(","):
+        part = part.strip()
         if 'rel="next"' in part:
-            # URL is wrapped in <>
-            next_url = part.split(";")[0].strip("<> ")
+            # <https://...>; rel="next"
+            next_url = part.split(";", 1)[0].strip()
+            if next_url.startswith("<") and next_url.endswith(">"):
+                next_url = next_url[1:-1]
             break
     print("Next page:", next_url)
 
@@ -247,4 +257,38 @@ async def organized_course(course_id: int):
                 })
         except Exception as e:
             print(f"Error loading assignments for {course}: {e}")
+    return out
+
+@app.get("/assignments/all")
+async def assignments_all():
+    user = canvas.get_current_user()
+    courses = user.get_courses(
+        enrollment_state=['active','completed','invited_or_pending'],
+        state=['available','completed','unpublished']
+    )
+    out = []
+    for c in courses:
+        try:
+            for a in c.get_assignments(order_by="due_at"):
+                if a.due_at:
+                    # ensure ISO string & a nice title
+                    due_iso = a.due_at  # Canvas already ISO; keep it simple for now
+
+                    course_code = getattr(c, "course_code", None)
+                    course_name = getattr(c, "name", None)
+                    label = course_code or course_name or f"Course {getattr(c, 'id', 'unknown')}"
+                    title = f"{a.name} ({label})"
+                    out.append({"title": title, "start": due_iso, "url": a.html_url})
+        except Forbidden as e:
+            # Some shells (orgs/trainings) don’t allow assignment listing
+            print(f"[assignments_all] skip course_id={getattr(c, 'id', 'unknown')} (Forbidden): {e}")
+            continue
+        except Exception as e:
+            # Avoid str(c) — Course.__str__ touches course_code and can blow up
+            cid = getattr(c, 'id', 'unknown')
+            cname = getattr(c, 'name', None) or getattr(c, 'course_code', None) or 'unknown'
+            print(f"[assignments_all] error course_id={cid} name={cname}: {e}")
+            continue
+    # sort by date
+    out.sort(key=lambda x: x["start"])
     return out
