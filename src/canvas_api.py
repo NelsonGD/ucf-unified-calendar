@@ -3,6 +3,8 @@ from canvasapi import Canvas
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import requests
+from datetime import date
 
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
@@ -41,12 +43,28 @@ def list_assignments(course_id):
 
     return [
         {
-            "course_id": a.id,
+            "course_id": course.id,
+            "course_name": course.name,
+            "assignment_id": a.id,
             "name": a.name,
             "due_at": a.due_at,
             "html_url": a.html_url
         }
 
         for a in course.get_assignments(order_by="due_at")
-        if a.due_at
     ]
+
+# Display raw data
+def raw_courses():
+    url = 'https://canvas.instructure.com'
+    r = requests.get(url)
+    return r.text
+
+
+# Display all assignments
+def all_assignments():
+    assignments = []
+    for c in canvas.get_courses():
+        assignments.append(list_assignments(c.id))
+
+    return assignments
