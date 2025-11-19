@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
-from datetime import date
+from datetime import date, datetime, timezone
 
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
@@ -29,10 +29,11 @@ def health():
 def list_courses():
     return [
         {
-            "courses_id": c.id,
+            "course_id": c.id,
             "name": c.name,
             "course_code": c.course_code,
         }
+
         for c in canvas.get_courses()
     ]
 
@@ -63,8 +64,70 @@ def raw_courses():
 
 # Display all assignments
 def all_assignments():
-    assignments = []
+    assignments_all = []
+    flat_list = []
     for c in canvas.get_courses():
-        assignments.append(list_assignments(c.id))
+        assignments_all.append(list_assignments(c.id))
 
-    return assignments
+    for class_a in assignments_all:
+        for a in class_a:
+            flat_list.append(a)
+
+    return flat_list
+
+# Adding date filtering to this shit
+# Parse Canvas ISO8601 due_at into a local date
+# (or None if missing/invalid).
+def _parse_due_date_local(due_at_str):
+    if not due_at_str:
+        return None
+    try: 
+        dt = datetime.fromisoformat(due_at_str.replace('Z', '+00:00'))
+        return dt.astimezone().date()
+    except Exception:
+        return None
+    
+# Return a new list sorted by due_at (None goes last)
+def _sort_by_due(assignments):
+    return sorted(
+        assignments,
+        key = lambda a:
+        (_parse_due_date_local(a.get("due_at")) is None,
+         _parse_due_date_local(a.get("due_at")) or date.max)
+         )
+# Adding date filtering
+# Bucket all assignments into past/present/future,
+# sorted by due date.
+# Returns a dict: {"part": [...], "present": [...],
+# "future": [...]}.
+def date_filter_all():
+    today = date.today()
+    buckets = {"past": [], "present": [], "future": []}
+
+    for a in all_assignments():
+        d = _parse_due_date_local(a.get("due_at"))
+        if d is None:
+            # Skip undated items so buckets stay cool
+            continue
+        if d < today: 
+            buckets["past"].append(a)
+        elif d == today:
+            buckets["present"].append(a)
+        else:
+            buckets["future"].append(a)
+
+    # Sort each bucket by due date ascending
+    for k in buckets:
+        buckets[k] = _sort_by_due(buckets[k])
+        
+    return buckets
+
+# Making it pretty or wtv
+def past_only_assignments():
+    """Only assignment strictly before today."""
+    return date_filter_all()["past"]
+
+def present_and_future_assignments():
+    """Assignments due today or later."""
+    b = date_filter_all()
+    return b["present"] + b["future"]
