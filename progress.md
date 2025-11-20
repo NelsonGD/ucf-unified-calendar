@@ -74,3 +74,55 @@ Quick run through code:
         C: due_at = None -> Key becomes: (True, date.max)
 
         Final Order: B, A, C
+
+Learning about OAuth:
+- To Begin: 
+    - Get OAuth 2.0 client credentials through Google API console.
+        - Client requests access token from Google Authorization server. Extracts token from response. Sends token to Google API you want to access.
+    - Make sure you know what kind of credentials are needeed. A JS App doesn't need a secret but a Web Server App does.
+    - "score" -> Controls the set of resources and operations that an access token permits.
+    - Best practice to requests scopes incrementally. When access is required.
+
+- Installed app vs Web App
+    - Web App & Installed App: 
+        - Your app requests the token from the user which is given by login in and giving consent (done in the Google server).
+        - Authorization code is given to the app.
+        - App and Google servers exchange coke for token.
+        - Token in the server gives a response.
+        - Token is used by app to call Google API.
+
+Google Calendar API Basics:
+- What is a calendar?
+    - Collection of events. Each one has metadata; Description or default calendar time zone. Represented by calendar source.
+        - https://developers.google.com/workspace/calendar/v3/reference/calendars
+
+- What is an event?
+    - Contains information such as title, start and end times, and attendees. Can be single or recurring. Represented by an event source.
+        -https://developers.google.com/workspace/calendar/api/v3/reference/events#resource-representations
+
+- Event fields: https://developers.google.com/calendar/api/guides/overview
+
+- start
+    - NESTED OBJECT
+        - INCLUSIVE start time of the event. Start of the first instance for recurring events.
+    Fields:
+    - "date": date
+    - "dateTime": dateTime
+    - "timezone": string
+
+
+- end
+    - NESTED OBJECT
+        - EXCLUSIVE end time of event. End time of the first instance for recurring events.
+    FIELDS:
+    - "date": date
+    - "dateTime": dateTime
+    - "timezone": string
+
+- summary
+ - Takes a string.
+ - TITLE OF THE EVENT
+
+- description
+    - Takes a string.
+    - Description of the event. Can contain HTML (Optional).
